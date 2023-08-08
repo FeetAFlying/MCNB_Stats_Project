@@ -11,22 +11,20 @@ from rsa_functions import *
 import rsatoolbox
 import rsatoolbox.rdm as rsr
 
-
 # VARIABLES
 # script should be in directory /code/ and data in another directory /data/
-datapath = "../data/"
+datapath = "/Volumes/INTENSO/data/"
+# path where to save the results of the analysis
+resultpath = "../analysis/"
 
-# subjects (N = 21)
-subjects = ["001"]
-# "002", "003", "004", "005", "006", "007", "008", "009", "010",
-# "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
-# "021"
+# subjects (N = 10)
+subjects = ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010"]
 
 # conditions
-all_conditions = ["stim_press", "stim_flutt",
-                  "stim_vibro", "imag_press", "imag_flutt", "imag_vibro"]
-selected_conditions = ["stim_press", "stim_flutt",
-                       "stim_vibro", "imag_press", "imag_flutt", "imag_vibro"]
+all_conditions = ["stim_press", "stim_flutt", "stim_vibro", 
+                  "imag_press", "imag_flutt", "imag_vibro"]
+selected_conditions = ["stim_press", "stim_flutt", "stim_vibro",
+                       "imag_press", "imag_flutt", "imag_vibro"]
 
 # ROIs
 # five regions of interest as defined by the original paper (intersection of stimulation vs. baseline contrast and anatomic masks)
@@ -46,15 +44,14 @@ formatted_data = np.empty(
 for index, subject in enumerate(subjects):
     formatted_data[:, :, :, :, index] = format_data_for_subject(
         subject, datapath, selected_conditions, all_conditions)
+# average over subjects
+averaged_data = average_over_subjects(formatted_data)
 
-# formated_data is now a 5D array with the following dimensions:
+# averaged_data is now a 4D array with the following dimensions:
 #       1st dimension: 79 voxels
 #       2nd dimension: 95 voxels
 #       3rd dimension: 79 voxels
 #       4th dimension: 6 conditions/stimulus types
-#       5th dimension: 21 subjects
-
-# TODO: average over all subjects
 
 # CALCULATE RSA
 # representational similarity analysis for each region of interest
@@ -62,28 +59,26 @@ for index, subject in enumerate(subjects):
 for region in regions_of_interest:
     # apply roi mask to data so only voxels of that roi are analyzed
     voxels_from_region = get_voxels_from_region_of_interest(
-        region, formatted_data, datapath)
+        region, datapath)
+    # index those voxels in our main data array and rearrange dimensions of array to fit dataset object
+    data_from_region = rearrange_array(voxels_from_region, averaged_data)
+
+    # data_from_region is now a 2D array with the following dimensions
+    #       1st dimension: 6 conditions/stimulus types
+    #       2nd dimension: roi voxels
+
     conditions_key = 'conditions'
     # transform data into dataset object for using the RSAToolbox by Schütt et al., 2019
-    region_datasets = create_rsa_datasets(voxels_from_region, len(subjects), conditions_key)
+    region_dataset = create_rsa_datasets(data_from_region, len(subjects), conditions_key)
 
     # select a subset of the dataset
     # select data only from conditions 1:3 (stimulation) and 4:6 (imagery)
-    stimulation_data = []
-    imagery_data = []
     stimulation_conditions = [conditions_key + str(number)
                               for number in range(1, 4)]
     imagery_conditions = [conditions_key + str(number)
                           for number in range(4, 7)]
-
-    # loop over subjects in our data_roi structure
-    for dataset in region_datasets:
-        # add subject data to stimulation substructure
-        stimulation_data.append(dataset.subset_obs(
-            by=conditions_key, value=stimulation_conditions))
-        # add subject data to imagery substructure
-        imagery_data.append(dataset.subset_obs(
-            by=conditions_key, value=imagery_conditions))
+    stimulation_data = region_dataset.subset_obs(by=conditions_key, value=stimulation_conditions)
+    imagery_data = region_dataset.subset_obs(by=conditions_key, value=imagery_conditions)
 
     # CALCULATE RDM
     # calculates a representational dissimilarity matrix for stimulation data and for imagery data
@@ -92,7 +87,7 @@ for region in regions_of_interest:
     imagery_RDM_euclidean = rsr.calc_rdm(
         imagery_data, method='euclidean', descriptor=conditions_key)
     all_RDM_euclidean = rsr.calc_rdm(
-        region_datasets, method='euclidean', descriptor=conditions_key)  # euclidean distance
+        region_dataset, method='euclidean', descriptor=conditions_key)  # euclidean distance
 
     # TODO: do the same thing but with MAHALANOBIS DISTANCE
 
@@ -103,8 +98,10 @@ for region in regions_of_interest:
 
     # RSA: SIMILIARITY OF RDMs
     # compares both RDMs (stimulation and imagery) and calculates their similiarity
+    # cosine similiarity
     cosine_similarity = rsatoolbox.rdm.compare(
-        stimulation_RDM_euclidean, imagery_RDM_euclidean, method='cosine')    # cosine similiarity
+        stimulation_RDM_euclidean, imagery_RDM_euclidean, method='cosine')
+    
     # other possible similiarity measures: (method=x)
     #               Pearson ('corr")
     #               whitened comparison methods ('corr_cov' or 'cosine_cov')
@@ -113,3 +110,12 @@ for region in regions_of_interest:
 
     print('The cosine similarity of stimulation and imagery RDMs in ' +
           str(region) + ' is: ' + str(np.mean(cosine_similarity)))
+    
+    # SAVE RESULTS
+    # save representational dissimiliarity matrices and corresponding figures
+    save_rdm_results(resultpath, region, 'stimulation', 'euclidean', stimulation_RDM_euclidean)
+    save_rdm_results(resultpath, region, 'imagery', 'euclidean', imagery_RDM_euclidean)
+    save_rdm_results(resultpath, region, 'all', 'euclidean', all_RDM_euclidean)
+
+    # save representational similiarity analysis results
+    save_rsa_results(resultpath, region, 'stim_imag', 'cosine', cosine_similarity)
