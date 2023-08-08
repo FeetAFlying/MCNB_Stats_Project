@@ -29,8 +29,15 @@ selected_conditions = ["stim_press", "stim_flutt",
                        "stim_vibro", "imag_press", "imag_flutt", "imag_vibro"]
 
 # ROIs
-regions_of_interest = ["right_BA2"]
-# "left_IPL", "SMA", "right_IFG", "left_IFG", "rPSC_1", "rPSC_2", "rPSC_3b", "rSII_TR50_right", "rSII_TR50_left"]
+# five regions of interest as defined by the original paper (intersection of stimulation vs. baseline contrast and anatomic masks)
+#       rPSC_1      :   contralateral (right) primary somatosensory cortex BA 1
+#       rPSC_2      :   contralateral (right) primary somatosensory cortex BA 2
+#       rPSC_3b     :   contralateral (right) primary somatosensory cortex BA 3b
+#       rSII_right  :   contralateral (right) secondary somatosensory cortex
+#       rSII_left   :   ipsilateral (left) secondary somatosensory cortex
+regions_of_interest = ["rPSC_2"] 
+# "rPSC_1", "rPSC_3b", "rSII_TR50_right", "rSII_TR50_left"
+
 
 # DATA FORMATING
 # initiate 5D array to fill with beta values of all subjects
@@ -46,6 +53,8 @@ for index, subject in enumerate(subjects):
 #       3rd dimension: 79 voxels
 #       4th dimension: 6 conditions/stimulus types
 #       5th dimension: 21 subjects
+
+# TODO: average over all subjects
 
 # CALCULATE RSA
 # representational similarity analysis for each region of interest
@@ -67,7 +76,6 @@ for region in regions_of_interest:
     imagery_conditions = [conditions_key + str(number)
                           for number in range(4, 7)]
 
-    print(stimulation_conditions)
     # loop over subjects in our data_roi structure
     for dataset in region_datasets:
         # add subject data to stimulation substructure

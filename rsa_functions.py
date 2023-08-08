@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import rsatoolbox
-import rsatoolbox.data as rsd   # abbreviation to deal with dataset
+import rsatoolbox.data as rsd
 import glob
 import nibabel as nib
 
@@ -97,6 +97,10 @@ def separate_conditions(selected_conditions: list[str],
 # we combine the first three dimensions to one dimension, and then move some dimensions
 # 1 (conditions) -> 0, 0 (voxels) -> 1, 2 (participants) -> 2
 
+# TODO: split function into three
+# one function that gets the roi voxels
+# one function that rearranges the array
+# one function that averages over participants (or do this as part of data formatting earlier?)
 
 def get_voxels_from_region_of_interest(region_of_interest: str,
                                        selected_conditions_data: np.ndarray,
