@@ -26,29 +26,25 @@ import matplotlib.pyplot as plt
 #                   11: all the remaining (bad) Imag trials
 
 
-# format_data_for_subject() takes a subject number, a datapath, the selected conditions and all conditions as input,
+# format_data_for_subject() takes a datapath, the selected conditions and all conditions as input,
 # removes unnecessary regressors, loads data and sorts beta values into conditions
 # returns formatted data for the subject
-def format_data_for_subject(subject: str,
-                            datapath: str,
+def format_data_for_subject(datapath: str,
                             selected_conditions: list[str],
                             all_conditions: list[str]) -> np.ndarray:
     # remove regressors that we don't need (all except 6 conditions)
-    filtered_beta_files = remove_regressors(datapath, subject)
+    filtered_beta_files = remove_regressors(datapath)
     # load only relevant data
-    betas_sub = load_data(filtered_beta_files, datapath, subject)
+    betas_sub = load_data(filtered_beta_files, datapath)
     # sort beta values into 6 conditions
     return sort_data_into_conditions(selected_conditions, all_conditions, betas_sub)
 
 
-# remove_regressors() takes a datapath and a subject no as input 
+# remove_regressors() takes a datapath as input 
 # returns a list with the beta files that we need (only regressors 1-6, see above)
-def remove_regressors(datapath: str,
-                      subject: str) -> list[str]:
-    folder_path = os.path.join(
-        datapath, f"sub-{subject}", "1st_level_good_bad_Imag")
+def remove_regressors(datapath: str) -> list[str]:
     # lists all beta files for the subject, sorted by name
-    beta_files_subject = sorted(glob.glob('beta*.nii', root_dir=folder_path))
+    beta_files_subject = sorted(glob.glob(os.path.join(datapath, 'beta*.nii')))
     # only get the relevant beta files
     # (6 files per condition, skipping 5 unused files, 6 times in total)
     filtered_beta_files = []
@@ -61,22 +57,19 @@ def remove_regressors(datapath: str,
     return filtered_beta_files
 
 
-# load_data() takes a list with the filtered beta files, a datapath and a subject number as input
+# load_data() takes a list with the filtered beta files and a datapath as input
 # returns a list with the loaded betas
 def load_data(filtered_beta_files: list[str],
-              datapath: str,
-              subject: str) -> list[int]:
-    folder_path = os.path.join(
-    datapath, f"sub-{subject}", "1st_level_good_bad_Imag")
+              datapath: str) -> list[int]:
     betas_subject = []
     for beta_file in filtered_beta_files:
         # load nifti files
-        file_path = os.path.join(folder_path, beta_file)
+        file_path = os.path.join(datapath, beta_file)
         beta = nib.load(file_path)
         # get data of nifti files
         beta_data = beta.get_fdata()
         # add data of file to subject list
-        betas_subject.append(beta_data)
+        betas_subject += [beta_data]
     # return list with relevant beta files for subject
     return betas_subject
 
@@ -175,12 +168,11 @@ def create_rsa_datasets(data_from_region: np.ndarray,
     for subject in np.arange(subject_count):
         descriptors = {'subjects': subject+1}
         # append the dataset object to the data list
-        rsa_data.append(rsd.Dataset(measurements=data_from_region[:,:,subject],
+        rsa_data += [rsd.Dataset(measurements=data_from_region[:,:,subject],
                             descriptors=descriptors,
                             obs_descriptors=condition_description,
                             channel_descriptors=voxel_description
-                            )
-                )
+                            )]
     return rsa_data
 
 
@@ -195,41 +187,32 @@ def show_debug_for_rdm(rdm_data: rsatoolbox.rdm.RDMs):
 
 # save_rdm_results() takes a resultpath, a region, a condition, a method
 # and the data of a representational dissimiliarity matrix as input
-# saves the matrix and corresponding figure to the specified directory
+# saves the matrix
 def save_rdm_results(resultpath: str,
                      region: str,
                      condition: str,
                      method: str,
-                     rdm_data: rsatoolbox.rdm.RDMs):
+                     rdm_data: np.ndarray,
+                     subject: str):
     # make a new directory for the region and rdm
     rdm_path = os.path.join(
         resultpath, region, "rdm")
     if os.path.exists(rdm_path) == False:
         os.makedirs(rdm_path)
 
-    # access rdm data as a matrix
-    rdm_matrix = rdm_data.get_matrices()[0,:,:]
-
     # save matrix as text file
-    matrix_filename = os.path.join(rdm_path, condition + "_rdm_" + method + ".txt")
-    np.savetxt(matrix_filename, rdm_matrix, delimiter=',')
-
-    # plot figure
-    figure, axes, return_value = rsatoolbox.vis.show_rdm(
-        rdm_data, show_colorbar='figure')
-    # save figure as jpg file
-    figure_filename = os.path.join(rdm_path, condition + "_rdm_" + method + ".jpg")
-    figure.savefig(figure_filename)
+    matrix_filename = os.path.join(rdm_path, condition + "_rdm_" + method + "_" + subject + ".txt")
+    np.savetxt(matrix_filename, rdm_data, delimiter=',')
 
 
 # save_rsa_results() takes a resultpath, a region, a condition, a method
 # and the data of a representational similiarity analysis as input
-# saves the rsa matrix to the specified directory
+# saves the rsa results to the specified directory
 def save_rsa_results(resultpath: str,
                      region: str,
                      condition: str,
                      method: str,
-                     rsa_data: np.ndarray):
+                     rsa_data):
     # make a new directory for the region and rsa
     rsa_path = os.path.join(
         resultpath, region, "rsa")
@@ -237,5 +220,6 @@ def save_rsa_results(resultpath: str,
         os.makedirs(rsa_path)
 
     # save rsa matrix as text file
-    matrix_filename = os.path.join(rsa_path, condition + "_rsa_" + method + ".txt")
-    np.savetxt(matrix_filename, rsa_data, delimiter=',')
+    filename = os.path.join(rsa_path, condition + "_rsa_" + method + ".txt")
+    file = open(filename, 'w')
+    file.write(str(rsa_data))
