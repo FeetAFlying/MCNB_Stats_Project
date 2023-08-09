@@ -5,13 +5,15 @@ import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import scipy.stats as stats
 
 # path where to the results of the analysis are (and where to save the plots as well)
 resultpath = "../analysis/"
 
 # visualization steps
-steps = ["plot_rdms"]
-# "plot_rdm_comparison"
+steps = ["plot_rdm_comparison"]
+# "plot_rdms"
 
 # subjects (N = 10)
 subjects = ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010"]
@@ -73,5 +75,29 @@ for step in steps:
                 plt.close()
     
     elif step == "plot_rdm_comparison":
-        # TODO: fill out
-        None
+        similiarity_values_all_regions = np.empty(len(subjects)*len(regions_of_interest))
+        for index,region in enumerate(regions_of_interest):
+            rsa_path = os.path.join(resultpath, region, 'rsa', 'stim_imag_rsa_corr.txt')
+            # read in similiarity values for region
+            similiarity_values = np.genfromtxt(rsa_path, delimiter=',')[0:-1]
+            mean_similiarity_value = np.mean(similiarity_values)
+            similiarity_values_all_regions[(index*len(subjects)):((index*len(subjects)) + len(subjects))] = similiarity_values[0:]
+
+        similiarity_plot_data = pd.DataFrame({'ROIs': np.repeat([1, 2, 3, 4, 5], 10),
+                            'Similiarity': similiarity_values_all_regions})
+        
+        similiarity_figure, similiarity_rois_axes = plt.subplots()
+        similiarity_rois_axes = sns.barplot(data=similiarity_plot_data, 
+                                            x="ROIs", y="Similiarity", 
+                                            errorbar='ci')
+        # TODO: somehow CI bars are all the same - check again
+        similiarity_rois_axes.set_title('Similiarity of Stimulation and Imagery RDMs across regions of interest')
+        region_labels = ["right BA2", "right BA1", "right BA3b", "right SII", "left SII"]
+        xpos = np.arange(len(region_labels))
+        similiarity_rois_axes.set_xticks(xpos, labels=region_labels)
+        similiarity_rois_axes.set_ylabel('Similiarity (r) of Stimulation and Imagery RDMs')
+        # plt.show()
+        # save figure as jpg file
+        similiarity_figure_filename = os.path.join(resultpath, "anova", "similiarity_stim_imag_across_rois.jpg")
+        similiarity_figure.savefig(similiarity_figure_filename)
+        plt.close()

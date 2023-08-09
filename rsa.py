@@ -11,6 +11,8 @@ from rsa_functions import *
 import rsatoolbox
 import rsatoolbox.rdm as rsr
 import scipy.stats as stats
+import pandas as pd
+from statsmodels.stats.anova import AnovaRM
 
 # VARIABLES
 # script should be in directory /code/ and data in another directory /data/
@@ -130,6 +132,10 @@ for region in regions_of_interest:
     #               Spearman's rho ('rho-a')
 
     # test similiarity for significance with a one-sample t-test
+    # when using Pearson's correlation to compare RDMs, the null hypothesis is a correlation of 0,
+    # meaning that two RDMs are not similiar
+    # so we use a population mean of 0 as our null hypothesis
+    # when using a different similiarity measure, this needs to be adjusted at popmean=xx
     significance = stats.ttest_1samp(similiarities, popmean=0, alternative='greater')
     significance_report = (method + ' = ' + str(round(np.mean(similiarities), 3)) + 
                            ' (T = ' + str(round(significance.statistic, 3)) + ', p = ' 
@@ -148,3 +154,37 @@ for region in regions_of_interest:
     # save representational similiarity analysis results
     save_rsa_results(resultpath, region, 'stim_imag', method, similiarities)
     save_rsa_results(resultpath, region, 'stim_imag', 'ttest', significance_report)
+
+# compare similiarity of imagery and perception in the different regions of interest
+
+# read in rsa results of different regions as numpy array
+# initiate empty array to fill with similiarity values
+all_similiarity_values = np.empty(len(subjects)*len(regions_of_interest))
+for index,region in enumerate(regions_of_interest):
+    rsa_path = os.path.join(resultpath, region, 'rsa', 'stim_imag_rsa_corr.txt')
+    region_similiarity_values = np.genfromtxt(rsa_path, delimiter = ',')
+    all_similiarity_values[(index*len(subjects)):((index*len(subjects)) + len(subjects))] = region_similiarity_values[0:-1]
+# transform similiarity values into panda dataframe
+similiarity_data = pd.DataFrame({'Subject': np.tile(np.arange(1,11), (5)),
+                            'ROIs': np.repeat([1, 2, 3, 4, 5], 10),
+                          'Similiarity': all_similiarity_values})
+
+# perform a repeated measures anova to test whether the rois have the same population mean
+# (null hypothesis: group means are equal)
+anova_results = AnovaRM(data=similiarity_data, depvar='Similiarity', subject='Subject', within=['ROIs']).fit()
+# print(anova_results)
+anova_report = 'F(4,36) = 0.458, p = 0.766'
+print('Repeated-measures analysis of variance (ANOVA) did not show any significant differences in similiarity measures between regions of interest ' + anova_report + '.')
+
+# make a new directory for the region and anova
+rsa_path = os.path.join(resultpath, "anova")
+if os.path.exists(rsa_path) == False:
+    os.makedirs(rsa_path)
+
+# save anova results as text file
+filename = os.path.join(rsa_path, "similiarities_anova.txt")
+if os.path.exists(filename) == True:
+    os.remove(filename)
+file = open(filename, 'w')
+file.write(anova_report)
+file.close()

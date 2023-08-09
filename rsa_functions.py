@@ -6,7 +6,6 @@ import rsatoolbox
 import rsatoolbox.data as rsd
 import glob
 import nibabel as nib
-import matplotlib.pyplot as plt
 
 
 ## FUNCTIONS FOR FORMATTING AND AVERAGING
@@ -221,5 +220,15 @@ def save_rsa_results(resultpath: str,
 
     # save rsa matrix as text file
     filename = os.path.join(rsa_path, condition + "_rsa_" + method + ".txt")
-    file = open(filename, 'w')
-    file.write(str(rsa_data))
+    if os.path.exists(filename) == True:
+        os.remove(filename)
+        
+    if method == 'ttest':
+        file = open(filename, 'w')
+        file.write(str(rsa_data))
+        file.close()
+    else:
+        file = open(filename, 'a')
+        for element in rsa_data:
+            file.write(str(element) + ",")
+        file.close()
