@@ -170,7 +170,9 @@ for region in regions_of_interest:
     for model in range(len(models)):
         print(models[model].name)
 
-    # compare model rdms to data rdms
+    # TODO: compare model rdms to data rdms
+    # spearman or which other correlation? maybe simply not using the toolbox?
+    # results don't get significant - is this because the models are simply shit? or is the data wrong?
     results_1 = rsatoolbox.inference.eval_fixed(models, all_RDM_euclidean, method='corr')
     rsatoolbox.vis.plot_model_comparison(results_1)
     print(results_1)
