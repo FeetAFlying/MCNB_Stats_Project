@@ -6,6 +6,8 @@ import rsatoolbox
 import rsatoolbox.data as rsd
 import glob
 import nibabel as nib
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 ## FUNCTIONS FOR FORMATTING AND AVERAGING
@@ -25,10 +27,12 @@ import nibabel as nib
 #                   11: all the remaining (bad) Imag trials
 
 
-# format_data_for_subject() takes a datapath, the selected conditions and all conditions as input,
+# format_data_for_subject() takes a datapath, the selected runs,
+# the selected conditions, and all conditions as input,
 # removes unnecessary regressors, loads data and sorts beta values into conditions
 # returns formatted data for the subject
 def format_data_for_subject(datapath: str,
+                            selected_runs: list[str],
                             selected_conditions: list[str],
                             all_conditions: list[str]) -> np.ndarray:
     # remove regressors that we don't need (all except 6 conditions)
@@ -36,7 +40,7 @@ def format_data_for_subject(datapath: str,
     # load only relevant data
     betas_sub = load_data(filtered_beta_files, datapath)
     # sort beta values into 6 conditions
-    return sort_data_into_conditions(selected_conditions, all_conditions, betas_sub)
+    return sort_data_into_conditions(selected_conditions, all_conditions, selected_runs, betas_sub)
 
 
 # remove_regressors() takes a datapath as input 
@@ -73,36 +77,40 @@ def load_data(filtered_beta_files: list[str],
     return betas_subject
 
 
-# sort_data_into_conditions() takes the selected conditions, all conditions and a list of unsorted beta files as input
-# returns a 4D array with the following dimensions:
+# sort_data_into_conditions() takes the selected conditions, all conditions, 
+# a list of the selected runs and a list of unsorted beta files as input
+# returns a 5D array with the following dimensions:
 #       1st dimension: 79 voxels
 #       2nd dimension: 95 voxels
 #       3rd dimension: 79 voxels
 #       4th dimension: 6 conditions/stimulus types
+#       5th dimension: selected runs (1-6)
 def sort_data_into_conditions(selected_conditions: list[str],
-                        all_conditions: list[str],
-                        betas_unsorted: list[int]) -> np.ndarray:
-    # initiate empty 4D array to fill
-    separated_conditions = np.empty((79, 95, 79, len(selected_conditions)))
+                                   all_conditions: list[str],
+                                   selected_runs: list[str],
+                                    betas_unsorted: list[int]) -> np.ndarray:
+    # transform list of selected runs to list of integers
+    selected_runs_int = [int(run)-1 for run in selected_runs]
+    # initiate empty 5D array to fill
+    separated_conditions_runs = np.empty((79, 95, 79, len(selected_conditions), len(selected_runs)))
     for index, condition in enumerate(selected_conditions):
         # get all betas for the condition
         # get index for condition (from all_conditions)
         num = all_conditions.index(condition)
-        # add all six runs of stimulus together
+        # add all runs of stimulus together
         stimulus = np.stack(betas_unsorted[num::6], axis=-1)
-        # calculate the average over all repetitions
-        stimulus_mean = np.mean(stimulus, axis=-1)
+        # select only the runs that we need
+        stimulus_selected_runs = stimulus[:, :, :, selected_runs_int]
         # add to main array
-        separated_conditions[:, :, :, index] = stimulus_mean
-    return separated_conditions
+        separated_conditions_runs[:, :, :, index, :] = stimulus_selected_runs
+    return separated_conditions_runs
 
-'''
-# average_over_subjects() takes the already formatted data (5D array) as input
-# and returns a 4D array of the data averaged over subjects
-def average_over_subjects(formatted_data: np.ndarray) -> np.ndarray:
+
+# average_over_runs() takes the already formatted data (6D array) as input
+# and returns a 5D array of the data averaged over the selected runs
+def average_over_runs(formatted_data: np.ndarray) -> np.ndarray:
     averaged_data = np.mean(formatted_data, axis=4)
     return averaged_data
-'''
 
 
 # get_voxels_from_region_of_interest() takes a region and a datapath as input
@@ -232,3 +240,20 @@ def save_rsa_results(resultpath: str,
         for element in rsa_data:
             file.write(str(element) + ",")
         file.close()
+
+## FUNCTIONS FOR VISUALIZATION
+# plot_rdm() takes a rdm, a subject and a list of conditions as input
+# plots heatmap of the rdm using python seaborn library
+def plot_rdm(rdm: np.ndarray,
+             subject: str,
+             conditions: list[str]):
+    figure, axes = plt.subplots()
+    axes = sns.heatmap(rdm,
+            cbar_kws = {'label':'Dissimiliarity (Euclidean)'},
+            cmap='viridis')
+    axes.xaxis.tick_top()
+    axes.set_xticklabels(conditions, rotation=0, fontsize=8)
+    axes.set_yticklabels(conditions, rotation=0, fontsize=8)
+    axes.set_title('subject ' + subject)
+    return figure
+               

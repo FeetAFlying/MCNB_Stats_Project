@@ -43,31 +43,39 @@ runs_count = len(runs)
 regions_of_interest = ["rPSC_2", "rPSC_1", "rPSC_3b", "rSII_TR50_right", "rSII_TR50_left"]
 
 # DATA FORMATING
-# initiate 5D array to fill with beta values of all subjects
+# initiate 6D array to fill with beta values of all subjects
 formatted_data = np.empty(
-    (79, 95, 79, len(selected_conditions), len(subjects)))
+    (79, 95, 79, len(selected_conditions), len(runs), len(subjects)))
 for index, subject in enumerate(subjects):
     folder_path = os.path.join(
         datapath, f"sub-{subject}", "1st_level_good_bad_Imag")
-    formatted_data[:, :, :, :, index] = format_data_for_subject(folder_path, selected_conditions, all_conditions)
+    formatted_data[:, :, :, :, :, index] = format_data_for_subject(folder_path, runs, selected_conditions, all_conditions)
     
 
-# formatted_data is now a 4D array with the following dimensions:
+# formatted_data is now a 6D array with the following dimensions:
 #       1st dimension: 79 voxels
 #       2nd dimension: 95 voxels
 #       3rd dimension: 79 voxels
 #       4th dimension: 6 conditions/stimulus types
-#       5th dimension: 10 participants
+#       5th dimension: selected runs (1-6)
+#       6th dimension: 10 participants
+
+# average over runs
+averaged_data = average_over_runs(formatted_data)
 
 # CALCULATE RSA
 # representational similarity analysis for each region of interest
+# initiate empty lists to fill with RDMs for each region and condition
+stimulation_RDMs_euclidean_all_regions = []
+imagery_RDMs_euclidean_all_regions = []
+all_RDMs_euclidean_all_regions = []
 # loop over region of interests and compute a RSA for each region separately
 for region in regions_of_interest:
     # apply roi mask to data so only voxels of that roi are analyzed
     voxels_from_region = get_voxels_from_region_of_interest(
         region, datapath)
     # index those voxels in our main data array and rearrange dimensions of array to fit dataset object
-    data_from_region = rearrange_array(voxels_from_region, formatted_data)
+    data_from_region = rearrange_array(voxels_from_region, averaged_data)
 
     # data_from_region is now a 3D array with the following dimensions
     #       1st dimension: 6 conditions/stimulus types
@@ -102,6 +110,11 @@ for region in regions_of_interest:
         imagery_data, method='euclidean', descriptor=conditions_key)
     all_RDM_euclidean = rsr.calc_rdm(
         region_datasets, method='euclidean', descriptor=conditions_key)
+    
+    # add RDMs to list for all regions
+    stimulation_RDMs_euclidean_all_regions += [stimulation_RDM_euclidean]
+    imagery_RDMs_euclidean_all_regions += [imagery_RDM_euclidean]
+    all_RDMs_euclidean_all_regions += [all_RDM_euclidean]
 
     # TODO: do the same thing but with MAHALANOBIS DISTANCE
 
@@ -113,7 +126,7 @@ for region in regions_of_interest:
 
     # RSA: SIMILIARITY OF RDMs
     # compares both RDMs (stimulation and imagery) and calculates their similiarity
-    # cosine similiarity
+    # pearson correlation
     method = 'corr'
     similiarities = []
     for subject in subjects:
