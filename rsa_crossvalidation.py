@@ -1,21 +1,25 @@
 # python script cross-validating the results of the rsa performed by rsa.py
 
 # leave-one-trial-out cross-validation
-# script trains classifier on the stimulation data of 5 trials and tests classifier on the imagery data of the remaining trial
+# script trains classifier on the stimulation data of 5 trials
+# and tests classifier on the imagery data of the remaining trial
 # repeat this for all trial combinations (6 times)
-# if classifier performs good, neural representations of tactile stimulation and imagery are probably similiar
+# if classifier performs good, neural representations of tactile stimulation
+# and imagery are probably similiar
 
-# SETUP
+
+#################################### SETUP #################################### 
+
 from rsa_functions import *
 import os
 import numpy as np
 import rsatoolbox
 import rsatoolbox.rdm as rsr
 import scipy.stats as stats
-import pandas as pd
-from statsmodels.stats.anova import AnovaRM
 
-# VARIABLES
+
+################################## VARIABLES ################################## 
+
 # script should be in directory /code/ and data in another directory /data/
 datapath = "/Volumes/INTENSO/data/"
 # path where to save the results of the analysis
@@ -34,7 +38,8 @@ selected_conditions = ["stim_press", "stim_flutt", "stim_vibro",
 runs = ["01", "02", "03", "04", "05", "06"]
 
 # ROIs
-# five regions of interest as defined by the original paper (intersection of stimulation vs. baseline contrast and anatomic masks)
+# five regions of interest as defined by the original paper 
+# (intersection of stimulation vs. baseline contrast and anatomic masks)
 #       rPSC_1      :   contralateral (right) primary somatosensory cortex BA 1
 #       rPSC_2      :   contralateral (right) primary somatosensory cortex BA 2
 #       rPSC_3b     :   contralateral (right) primary somatosensory cortex BA 3b
@@ -42,12 +47,16 @@ runs = ["01", "02", "03", "04", "05", "06"]
 #       rSII_left   :   ipsilateral (left) secondary somatosensory cortex
 regions_of_interest = ["rPSC_2", "rPSC_1", "rPSC_3b", "rSII_TR50_right", "rSII_TR50_left"]
 
-# CROSS-VALIDATION
-# loop over region of interests and compute a cross-validation for each region separately
+
+############################### CROSSVALIDATION ################################ 
+
+# loop over region of interests and compute a cross-validation 
+# for each region separately
 for region in regions_of_interest:
     # initiate empty list to fill with similiarities for all runs
     results_similiarities = []
-    # loop over all runs and choose one run as test set, the remaining runs are used for training
+    # loop over all runs and choose one run as test set, 
+    # the remaining runs are used for training
     for index, run in enumerate(runs):
         # the selected run should be the test set
         test_run = [run]
@@ -68,15 +77,18 @@ for region in regions_of_interest:
             # testing phase
             else:
                 relevant_runs = test_run
+            
 
-            # DATA FORMATING
+            ############################### DATA FORMATTING ################################ 
+
             # initiate 5D array to fill with beta values of all subjects
             formatted_data = np.empty(
                 (79, 95, 79, len(selected_conditions), len(relevant_runs), len(subjects)))
             for index, subject in enumerate(subjects):
                 folder_path = os.path.join(
                     datapath, f"sub-{subject}", "1st_level_good_bad_Imag")
-                formatted_data[:, :, :, :, :, index] = format_data_for_subject(folder_path, relevant_runs, selected_conditions, all_conditions)
+                formatted_data[:, :, :, :, :, index] = format_data_for_subject(
+                     folder_path, relevant_runs, selected_conditions, all_conditions)
             
             # formatted_data is now a 6D array with the following dimensions:
             #       1st dimension: 79 voxels
@@ -93,7 +105,8 @@ for region in regions_of_interest:
             # apply roi mask to data so only voxels of that roi are analyzed
             voxels_from_region = get_voxels_from_region_of_interest(
                 region, datapath)
-            # index those voxels in our main data array and rearrange dimensions of array to fit dataset object
+            # index those voxels in our main data array and rearrange dimensions
+            # of array to fit dataset object
             data_from_region = rearrange_array(voxels_from_region, data)
 
             # data_from_region is now a 3D array with the following dimensions
@@ -102,8 +115,10 @@ for region in regions_of_interest:
             #       3rd dimension: 10 participants
 
             conditions_key = 'conditions'
-            # transform data into dataset object for using the RSAToolbox by Schütt et al., 2019
-            region_datasets = create_rsa_datasets(data_from_region, len(subjects), conditions_key)
+            # transform data into dataset object for using the RSAToolbox 
+            # by Schütt et al., 2019
+            region_datasets = create_rsa_datasets(data_from_region, 
+                                                  len(subjects), conditions_key)
 
             # select a subset of the datasets
             # select data only from conditions 1:3 (stimulation) and 4:6 (imagery)
@@ -115,13 +130,18 @@ for region in regions_of_interest:
             stimulation_data = []
             imagery_data = []
             for dataset in region_datasets:
-                stimulation_sub_dataset = dataset.subset_obs(by=conditions_key, value=stimulation_conditions)
-                imagery_sub_dataset = dataset.subset_obs(by=conditions_key, value=imagery_conditions)
+                stimulation_sub_dataset = dataset.subset_obs(
+                     by=conditions_key, value=stimulation_conditions)
+                imagery_sub_dataset = dataset.subset_obs(
+                     by=conditions_key, value=imagery_conditions)
                 stimulation_data += [stimulation_sub_dataset]
                 imagery_data += [imagery_sub_dataset]
             
-            # CALCULATE RDMs
-            # calculates a representational dissimilarity matrix for stimulation data, for imagery data and for all data
+
+            ################################ CALCULATE RDMS ################################ 
+
+            # calculates a representational dissimilarity matrix 
+            # for stimulation data, for imagery data and for all data
             # euclidean distance
             stimulation_RDM_euclidean = rsr.calc_rdm(
                 stimulation_data, method='euclidean', descriptor=conditions_key)
@@ -130,20 +150,22 @@ for region in regions_of_interest:
             all_RDM_euclidean = rsr.calc_rdm(
                 region_datasets, method='euclidean', descriptor=conditions_key)
 
-            # TODO: do the same thing but with MAHALANOBIS DISTANCE
-
             # print RDMs and plot them for manual inspection
-            # show_debug_for_rdm(stimulation_RDM_euclidean)
-            # show_debug_for_rdm(imagery_RDM_euclidean)
-            # show_debug_for_rdm(all_RDM_euclidean)
-            # input("Press Enter to continue...")
+            show_debug_for_rdm(stimulation_RDM_euclidean)
+            show_debug_for_rdm(imagery_RDM_euclidean)
+            show_debug_for_rdm(all_RDM_euclidean)
+            input("Press Enter to continue...")
 
             if phase == 'training':
-                training_RDMs = [stimulation_RDM_euclidean, imagery_RDM_euclidean, all_RDM_euclidean]
+                training_RDMs = [stimulation_RDM_euclidean, 
+                                 imagery_RDM_euclidean, all_RDM_euclidean]
             else:
-                testing_RDMs = [stimulation_RDM_euclidean, imagery_RDM_euclidean, all_RDM_euclidean]
+                testing_RDMs = [stimulation_RDM_euclidean, 
+                                imagery_RDM_euclidean, all_RDM_euclidean]
             
-        # perform cross-validation
+
+        ######################### CROSS VALIDATION: COMPARE RDMS ########################## 
+
         # the train set are the stimulation RDMs from the training phase
         train_set = training_RDMs[0]
         # the test set are the imagery RDMs from the test phase
@@ -156,8 +178,7 @@ for region in regions_of_interest:
             similiarity = rsatoolbox.rdm.compare(
                 train_set.subset('subjects', int(subject)),
                 test_set.subset('subjects', int(subject)),
-                method = method
-            )
+                method = method)
             similiarities += [(similiarity[0][0])]
         results_similiarities += [similiarities]
         
@@ -169,25 +190,33 @@ for region in regions_of_interest:
         #               Spearman's rho ('rho-a')
 
         # test similiarity for significance with a one-sample t-test
-        # when using Pearson's correlation to compare RDMs, the null hypothesis is a correlation of 0,
+        # when using Pearson's correlation to compare RDMs, 
+        # the null hypothesis is a correlation of 0,
         # meaning that two RDMs are not similiar
         # so we use a population mean of 0 as our null hypothesis
-        # when using a different similiarity measure, this needs to be adjusted at popmean=xx
-        significance = stats.ttest_1samp(similiarities, popmean=0, alternative='greater')
+        # when using a different similiarity measure,
+        # this needs to be adjusted at popmean=xx
+        significance = stats.ttest_1samp(similiarities, popmean=0, 
+                                         alternative='greater')
         significance_report = (method + ' = ' + str(round(np.mean(similiarities), 3)) + 
                             ' (T = ' + str(round(significance.statistic, 3)) + ', p = ' 
-                            + str(round(significance.pvalue, 3)) + ', df = ' + str(significance.df) + ')')
+                            + str(round(significance.pvalue, 3)) + ', df = ' + 
+                            str(significance.df) + ')')
 
-        print('The average similarity of stimulation (train) and imagery (test) RDMs across ' + str(len(subjects)) + 
-            ' subjects in ' + str(region) + ' when taking run ' + run + ' as test set and all remaining runs as train set is: '
+        print('The average similarity of stimulation (train) and imagery (test) RDMs across ' 
+              + str(len(subjects)) + ' subjects in ' + str(region) + ' when taking run ' 
+              + run + ' as test set and all remaining runs as train set is: '
             + str(significance_report))
 
-        # SAVE RESULTS
+
+        ################################ SAVE RESULTS ################################ 
+
         cross_validation_path = os.path.join(resultpath, region, "cross_validation")
         if os.path.exists(cross_validation_path) == False:
             os.makedirs(cross_validation_path)
         # save similiarity results as text file
-        filename = os.path.join(cross_validation_path, "cross_validation_" + method + "_run_" + run +  ".txt")
+        filename = os.path.join(cross_validation_path, "cross_validation_" + 
+                                method + "_run_" + run +  ".txt")
         if os.path.exists(filename) == True:
             os.remove(filename)
         file = open(filename, 'a')
@@ -195,30 +224,41 @@ for region in regions_of_interest:
                 file.write(str(element) + ",")
         file.close()
         # save t-test results as text file
-        filename = os.path.join(cross_validation_path, "cross_validation_" + method + "_run_" + run + "_ttest_.txt")
+        filename = os.path.join(cross_validation_path, "cross_validation_" 
+                                + method + "_run_" + run + "_ttest_.txt")
         if os.path.exists(filename) == True:
             os.remove(filename)
         file = open(filename, 'w')
         file.write(str(significance_report) + ",")
         file.close()
     
+
+    ############################ COMPARE RDMS ############################# 
+
     # average results over runs
     average_results_all_runs = np.mean(results_similiarities, axis=0)
     
     # test similiarities over runs for significance with a one-sample t-test
-    # when using Pearson's correlation to compare RDMs, the null hypothesis is a correlation of 0,
+    # when using Pearson's correlation to compare RDMs, 
+    # the null hypothesis is a correlation of 0,
     # meaning that two RDMs are not similiar
     # so we use a population mean of 0 as our null hypothesis
-    # when using a different similiarity measure, this needs to be adjusted at popmean=xx
-    significance = stats.ttest_1samp(average_results_all_runs, popmean=0, alternative='greater')
+    # when using a different similiarity measure,
+    # this needs to be adjusted at popmean=xx
+    significance = stats.ttest_1samp(average_results_all_runs, popmean=0, 
+                                     alternative='greater')
     significance_report = ( 'corr = ' + str(round(np.mean(average_results_all_runs), 3)) + 
                             ' (T = ' + str(round(significance.statistic, 3)) + ', p = ' 
-                            + str(round(significance.pvalue, 3)) + ', df = ' + str(significance.df) + ')')
+                            + str(round(significance.pvalue, 3)) + ', df = ' + 
+                            str(significance.df) + ')')
 
-    print('The average similarity of stimulation (train) and imagery (test) RDMs across ' + str(len(subjects)) + 
-            ' subjects in ' + str(region) + ' is: ' + str(significance_report))
+    print('The average similarity of stimulation (train) and imagery (test) RDMs across ' 
+          + str(len(subjects)) + ' subjects in ' + str(region) + ' is: ' 
+          + str(significance_report))
 
-    # SAVE RESULTS
+
+    ################################ SAVE RESULTS ################################
+
     cross_validation_path = os.path.join(resultpath, region, "cross_validation")
     if os.path.exists(cross_validation_path) == False:
             os.makedirs(cross_validation_path)
@@ -231,33 +271,46 @@ for region in regions_of_interest:
                 file.write(str(element) + ",")
     file.close()
     # save t-test results as text file
-    filename = os.path.join(cross_validation_path, "cross_validation_corr_avg_ttest_.txt")
+    filename = os.path.join(cross_validation_path, 
+                            "cross_validation_corr_avg_ttest_.txt")
     if os.path.exists(filename) == True:
         os.remove(filename)
     file = open(filename, 'w')
     file.write(str(significance_report) + ",")
     file.close()
 
-# compare similiarity of cross-validated imagery and perception in the different regions of interest
+
+############################ COMPARE RDMS ACROSS REGIONS ############################ 
+
+# compare similiarity of cross-validated imagery and perception
+# in the different regions of interest
 
 # read in cross-validation results of different regions as numpy array
-# initiate empty array to fill with similiarity values
-all_similiarity_values = np.empty(len(subjects)*len(regions_of_interest))
+# initiate empty array to fill with similiarity values for regions
+all_similiarity_values = np.empty((len(regions_of_interest),len(subjects)))
 for index,region in enumerate(regions_of_interest):
-    cross_validation_path = os.path.join(resultpath, region, 'cross_validation', 'cross_validation_corr_avg.txt')
+    cross_validation_path = os.path.join(resultpath, region, 
+                                         'cross_validation', 'cross_validation_corr_avg.txt')
     region_similiarity_values = np.genfromtxt(cross_validation_path, delimiter = ',')
-    all_similiarity_values[(index*len(subjects)):((index*len(subjects)) + len(subjects))] = region_similiarity_values[0:-1]
-# transform similiarity values into panda dataframe
-similiarity_data = pd.DataFrame({'Subject': np.tile(np.arange(1,11), (5)),
-                            'ROIs': np.repeat([1, 2, 3, 4, 5], 10),
-                          'Similiarity': all_similiarity_values})
+    all_similiarity_values[index,:] = region_similiarity_values[0:-1]
 
-# perform a repeated measures anova to test whether the rois have the same population mean
-# (null hypothesis: group means are equal)
-anova_results = AnovaRM(data=similiarity_data, depvar='Similiarity', subject='Subject', within=['ROIs']).fit()
-print(anova_results)
-anova_report = 'F(4,36) = 1.0407, p = 0.340'
-print('Repeated-measures analysis of variance (ANOVA) did not show any significant differences in cross-validated similiarity measures between regions of interest ' + anova_report + '.')
+# perform a one-way anova to test whether the rois have the same population mean
+# null hypothesis: group means are equal
+anova_results = stats.f_oneway(all_similiarity_values[0],
+                               all_similiarity_values[1],
+                                all_similiarity_values[2],
+                                 all_similiarity_values[3],
+                                  all_similiarity_values[4])
+anova_report = ('F(' + str(len(regions_of_interest)-1) + ',' + 
+                str(len(subjects)-len(regions_of_interest)) 
+                + ') = ' + str(round(anova_results.statistic,2)) + 
+                ', p = ' + str(round(anova_results.pvalue, 3)))
+print('Repeated-measures analysis of variance (ANOVA) did not show any '
+      + 'significant differences in similiarity measures between regions' +
+       ' of interest ' + anova_report + '.')
+
+
+################################ SAVE RESULTS ################################ 
 
 # make a new directory for the region and anova
 rsa_path = os.path.join(resultpath, "anova")

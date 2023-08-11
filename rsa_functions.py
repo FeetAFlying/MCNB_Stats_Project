@@ -1,5 +1,6 @@
 # script with functions for the main RSA script (DO NOT RUN THIS SCRIPT)
 # both scripts need to be in the same directory in order to be able to run the rsa.py script
+
 import os
 import numpy as np
 import rsatoolbox
@@ -10,7 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-## FUNCTIONS FOR FORMATTING AND AVERAGING
+############################# FUNCTIONS FOR FORMATTING ############################## 
 
 # our data is in the following format:
 # 6 runs * 11 regressors + 6 constants = 72 beta files per participant
@@ -40,7 +41,8 @@ def format_data_for_subject(datapath: str,
     # load only relevant data
     betas_sub = load_data(filtered_beta_files, datapath)
     # sort beta values into 6 conditions
-    return sort_data_into_conditions(selected_conditions, all_conditions, selected_runs, betas_sub)
+    return sort_data_into_conditions(selected_conditions, all_conditions,
+                                      selected_runs, betas_sub)
 
 
 # remove_regressors() takes a datapath as input 
@@ -92,7 +94,8 @@ def sort_data_into_conditions(selected_conditions: list[str],
     # transform list of selected runs to list of integers
     selected_runs_int = [int(run)-1 for run in selected_runs]
     # initiate empty 5D array to fill
-    separated_conditions_runs = np.empty((79, 95, 79, len(selected_conditions), len(selected_runs)))
+    separated_conditions_runs = np.empty((79, 95, 79, len(selected_conditions),
+                                           len(selected_runs)))
     for index, condition in enumerate(selected_conditions):
         # get all betas for the condition
         # get index for condition (from all_conditions)
@@ -155,10 +158,12 @@ def rearrange_array(region_data: np.ndarray,
     return selected_conditions_region_only
 
 
-## FUNCTIONS FOR RSA
+############################# FUNCTIONS FOR RSA ############################## 
 
-# create_rsa_dataset() takes the data from a region, the number of subjects and a condition key as input
-# returns a RSAToolbox object using the RSAToolbox by Schütt et al., 2019 with the following attributes:
+# create_rsa_dataset() takes the data from a region, the number of subjects
+# and a condition key as input
+# returns a RSAToolbox object using the RSAToolbox by Schütt et al., 2019
+# with the following attributes:
 #       data.measurements: 634 voxel values for 6 conditions
 #       data.descriptors: subj no
 #       data.obs_descriptors: cond no
@@ -187,7 +192,7 @@ def create_rsa_datasets(data_from_region: np.ndarray,
 # prints it and plots a figure to check if everything went alright
 def show_debug_for_rdm(rdm_data: rsatoolbox.rdm.RDMs):
     print(rdm_data)
-    figure, axes, return_value = rsatoolbox.vis.show_rdm(
+    figure = rsatoolbox.vis.show_rdm(
         rdm_data, show_colorbar='figure')
     figure.show()
 
@@ -208,7 +213,8 @@ def save_rdm_results(resultpath: str,
         os.makedirs(rdm_path)
 
     # save matrix as text file
-    matrix_filename = os.path.join(rdm_path, condition + "_rdm_" + method + "_" + subject + ".txt")
+    matrix_filename = os.path.join(rdm_path, condition + 
+                                   "_rdm_" + method + "_" + subject + ".txt")
     np.savetxt(matrix_filename, rdm_data, delimiter=',')
 
 
@@ -241,7 +247,9 @@ def save_rsa_results(resultpath: str,
             file.write(str(element) + ",")
         file.close()
 
-## FUNCTIONS FOR VISUALIZATION
+
+######################### FUNCTIONS FOR VISUALIZATION ########################## 
+
 # plot_rdm() takes a rdm, a subject and a list of conditions as input
 # plots heatmap of the rdm using python seaborn library
 def plot_rdm(rdm: np.ndarray,
@@ -256,4 +264,3 @@ def plot_rdm(rdm: np.ndarray,
     axes.set_yticklabels(conditions, rotation=0, fontsize=8)
     axes.set_title('subject ' + subject)
     return figure
-               
